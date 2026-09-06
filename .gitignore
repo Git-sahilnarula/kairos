@@ -1,0 +1,21 @@
+# Secrets — NEVER commit these
+.env
+*.env
+!.env.example
+
+# n8n local data (if ever mounted as a visible folder)
+n8n_data/
+.n8n/
+
+# OS/editor junk
+.DS_Store
+Thumbs.db
+.vscode/
+*.log
+
+# Postgres local dumps/backups if you ever create them
+*.sql.bak
+/backups/
+
+# Node modules (if you add a frontend later)
+node_modules/
