@@ -4,13 +4,11 @@
     {
       "parameters": {
         "url": "https://api.github.com/search/issues?q=label:bounty+state:open&sort=created&order=desc",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "Authorization",
-              "value": "Personal access tokens (classic)"
-            },
             {
               "name": "Accept",
               "value": "application/vnd.github+json"
@@ -26,7 +24,13 @@
         0
       ],
       "id": "39d59572-a31f-4dcd-9459-416be7a05c68",
-      "name": "HTTP Request"
+      "name": "HTTP Request",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1g1nLmwAjX6ouaCv",
+          "name": "GitHub API token"
+        }
+      }
     },
     {
       "parameters": {
@@ -440,7 +444,7 @@
     "executionOrder": "v1",
     "binaryMode": "separate"
   },
-  "versionId": "1de6a059-2f2f-4399-92eb-4eda72de5247",
+  "versionId": "1faf26f3-2c0b-4975-a63a-a3905b3955dc",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "5215bda0e73597213fb7faa18b7b22f9c85396de4cdc48e8e72f513346eebc14"
