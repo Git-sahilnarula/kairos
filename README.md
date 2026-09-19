@@ -19,12 +19,12 @@ Built as a learning project and open-source reference for multi-agent AI orchest
 
 KAIROS currently uses independent discovery workflows for each source:
 
-| Source           | Method                | Authentication             | Status    |
-| ---------------- | --------------------- | -------------------------- | --------- |
-| RemoteOK         | JSON API              | None                       | ✅ Live    |
-| We Work Remotely | RSS                   | None                       | ✅ Live    |
-| Reddit           | Public JSON endpoints | None                       | ⬜ Planned |
-| GitHub Issues    | GitHub API            | Token-based authentication | ✅ Live    |
+| Source           | Method                | Authentication                            | Status    |
+| ---------------- | --------------------- | ----------------------------------------- | --------- |
+| RemoteOK         | JSON API              | None                                      | ✅ Live    |
+| We Work Remotely | RSS                   | None                                      | ✅ Live    |
+| Reddit           | Public JSON endpoints | None                                      | ⬜ Planned |
+| GitHub Issues    | GitHub API            | n8n Header Auth credential (GitHub token) | ✅ Live    |
 
 Each source is processed independently and writes normalized opportunities into the shared `opportunities` table.
 
@@ -51,7 +51,9 @@ kairos/
 │   └── .env.example        # copy to .env and fill in real values — never commit .env
 ├── database/
 │   ├── schema/
-│   │   └── 001_init.sql    # user_profile, preferences tables (+ pgvector extension)
+│   │   ├── 001_init.sql                # user_profile, preferences tables (+ pgvector extension)
+│   │   ├── 002_opportunities.sql       # shared opportunities table written by all discovery workflows
+│   │   └── 003_updated_at_trigger.sql  # keeps opportunities.updated_at current
 │   └── seed/
 │       └── seed_profile.sql
 └── n8n/
@@ -78,6 +80,16 @@ This starts three containers:
 * `kairos-ollama` — Ollama API at **http://localhost:11434**
 
 > **Note on port 5679:** if you already run another n8n instance on the default port 5678, this project's `docker-compose.yml` maps its n8n instance to **5679** instead to avoid conflicts. Change it back to `5678:5678` in `docker-compose.yml` if you don't have that conflict.
+
+### Database schema
+
+Files in `database/schema/` run automatically, in filename order, the first time the Postgres container starts with an empty volume: `001` creates the profile tables, `002` the shared `opportunities` table, and `003` a trigger that sets `updated_at` whenever a discovery run updates an existing row. `002` and `003` are safe to re-run.
+
+On an existing database, apply a new migration manually from the `docker/` folder:
+
+```bash
+docker exec -i kairos-postgres psql -U kairos -d kairos < ../database/schema/003_updated_at_trigger.sql
+```
 
 ### Seed your profile
 
@@ -112,16 +124,15 @@ Use a smaller model (e.g. `llama3.2:3b`) if you have 8GB RAM or less.
 
 ### GitHub Issues authentication
 
-The GitHub Issues discovery workflow uses the GitHub API.
+The GitHub Issues workflow authenticates with a GitHub Personal Access Token stored as an n8n credential, never typed into the workflow itself.
 
-Do **not** place the GitHub Personal Access Token directly inside the HTTP Request node or exported workflow JSON.
+1. On GitHub, generate a classic Personal Access Token (Settings → Developer settings → Personal access tokens → Tokens (classic)). Leave every scope unchecked, since only public data is read, and set an expiry.
+2. In n8n, open the HTTP Request node of the GitHub Issues workflow. Set **Authentication** to Generic Credential Type and **Generic Auth Type** to Header Auth.
+3. Create a new Header Auth credential: **Name** `Authorization`, **Value** `Bearer ` followed by the token (one space, nothing after the token).
+4. Do not add an Authorization row under **Send Headers**. The credential supplies it. Only `Accept: application/vnd.github+json` is set manually.
+5. Never commit the token. The exported workflow JSON contains only the credential's id and label.
 
-Instead:
-
-1. Create the GitHub credential/token as required by the workflow.
-2. Store it using n8n's credential system.
-3. Reference the credential from the HTTP Request node.
-4. Never commit the actual token to Git.
+To confirm the token is attached, temporarily turn on **Options → Include Response Headers and Status** on the node, run it, and read `x-ratelimit-limit`: GitHub's search endpoint allows 30 requests per minute with a valid token and 10 without. Remove the option afterwards, because it changes the output shape the next node expects.
 
 GitHub Push Protection should remain enabled on the repository so accidentally committed credentials are detected before they reach the remote repository.
 
@@ -154,12 +165,14 @@ The exact number of opportunities is expected to change between runs.
 | Postgres node errors on `Columns to match on`       | Set it explicitly to `source, source_opportunity_id`, not `id`                                                                                      |
 | A source's Filter node passes 100% of items through | Check for overly broad keyword substrings (e.g. `"ai"` matching inside unrelated words) — use word-boundary regex matching in the Code node instead |
 | GitHub workflow returns authentication errors       | Check the n8n GitHub credential/token configuration                                                                                                 |
+| GitHub workflow runs but is rate-limited like an anonymous client (`x-ratelimit-limit: 10`) | Token isn't attached. Check the Header Auth credential: Name must be exactly `Authorization` and Value must start with `Bearer ` |
 | GitHub workflow finds no opportunities              | Check the issue-label/filter configuration and GitHub API response                                                                                  |
 
 ## Design notes
 
 * Each source is its own independent n8n workflow rather than one merged workflow. This means a failure in one source does not block the others, and each source can be scheduled or toggled independently.
 * All sources write into a single shared `opportunities` table using an **UPSERT** on `(source, source_opportunity_id)`, keeping the pipeline source-agnostic from Phase 3 onward.
+* `opportunities.updated_at` is maintained by a database trigger, so it records the last time a discovery run saw a listing, not when the source changed it.
 * Keyword filtering at discovery time is intentionally a cheap, blunt noise-reduction pass. Real relevance judgment is deferred to the **Skill Match Agent (Phase 3)** rather than being decided entirely during discovery.
 * Source-specific authentication is isolated from exported workflow definitions wherever possible.
 * Discovery workflows are designed to produce normalized opportunity records that downstream agents can process consistently.
