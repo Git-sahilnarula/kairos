@@ -4,15 +4,15 @@ KAIROS is a personal, zero-cost, n8n-orchestrated agent system that discovers fr
 
 Built as a learning project and open-source reference for multi-agent AI orchestration using n8n — not a commercial product. See `docs/` (coming in later phases) for the full architecture writeup.
 
-## Status: Phase 2 in progress
+## Status: Phase 2 complete ✅
 
 * ✅ **Phase 1 — Foundation:** Docker stack (n8n + PostgreSQL/pgvector + Ollama), profile schema seeded
-* 🔄 **Phase 2 — Discovery:** 3 of 4 planned sources live
+* ✅ **Phase 2 — Discovery:** 4 sources live
 
   * ✅ RemoteOK — JSON API, no authentication
   * ✅ We Work Remotely — RSS feed, `remote-programming-jobs` category
-  * ⬜ Reddit — `r/forhire`, `r/freelance_forhire`, `r/jobbit` — official public JSON endpoints
   * ✅ GitHub Issues — bounty/paid-labeled issues
+  * ✅ Arbeitnow — JSON API, no authentication
 * ⬜ **Phase 3 onward** — AI agents, deterministic scoring, RAG-based precedent reasoning, frontend
 
 ## Discovery Sources
@@ -23,8 +23,8 @@ KAIROS currently uses independent discovery workflows for each source:
 | ---------------- | --------------------- | ----------------------------------------- | --------- |
 | RemoteOK         | JSON API              | None                                      | ✅ Live    |
 | We Work Remotely | RSS                   | None                                      | ✅ Live    |
-| Reddit           | Public JSON endpoints | None                                      | ⬜ Planned |
 | GitHub Issues    | GitHub API            | n8n Header Auth credential (GitHub token) | ✅ Live    |
+| Arbeitnow        | JSON API              | None                                      | ✅ Live    |
 
 Each source is processed independently and writes normalized opportunities into the shared `opportunities` table.
 
@@ -37,7 +37,7 @@ Each source is processed independently and writes normalized opportunities into 
 | Orchestration     | n8n (Docker)                                          |
 | Database          | PostgreSQL + pgvector (Docker)                        |
 | Local LLM         | Ollama (`llama3.1:8b`)                                |
-| Discovery sources | RemoteOK API, We Work Remotely RSS, GitHub Issues API |
+| Discovery sources | RemoteOK API, We Work Remotely RSS, GitHub Issues API, Arbeitnow API |
 | Runtime           | Docker Compose                                        |
 
 ## Project structure
@@ -60,7 +60,8 @@ kairos/
     └── workflows/
         ├── WF-01 Discovery - RemoteOK.json
         ├── WF-01b WeWorkRemotely.json
-        └── WF-01d Discovery - GitHub Issues.json
+        ├── WF-01d Discovery - GitHub Issues.json
+        └── WF-01e Discovery - Arbeitnow.json
 ```
 
 ## Setup
@@ -151,7 +152,8 @@ Expected output will vary as the feeds and APIs update:
 ----------------+-------
  remoteok       |   100
  weworkremotely |    25
- github_issues  |    ...
+ github_issues  |    30
+ arbeitnow      |    50
 ```
 
 The exact number of opportunities is expected to change between runs.
@@ -167,6 +169,7 @@ The exact number of opportunities is expected to change between runs.
 | GitHub workflow returns authentication errors       | Check the n8n GitHub credential/token configuration                                                                                                 |
 | GitHub workflow runs but is rate-limited like an anonymous client (`x-ratelimit-limit: 10`) | Token isn't attached. Check the Header Auth credential: Name must be exactly `Authorization` and Value must start with `Bearer ` |
 | GitHub workflow finds no opportunities              | Check the issue-label/filter configuration and GitHub API response                                                                                  |
+| Arbeitnow workflow returns empty data array          | Check API endpoint status and response structure                                                                                                    |
 
 ## Design notes
 
@@ -176,6 +179,7 @@ The exact number of opportunities is expected to change between runs.
 * Keyword filtering at discovery time is intentionally a cheap, blunt noise-reduction pass. Real relevance judgment is deferred to the **Skill Match Agent (Phase 3)** rather than being decided entirely during discovery.
 * Source-specific authentication is isolated from exported workflow definitions wherever possible.
 * Discovery workflows are designed to produce normalized opportunity records that downstream agents can process consistently.
+* Reddit was initially planned but replaced with Arbeitnow due to OAuth app registration issues with Reddit's developer portal.
 
 ## Roadmap
 
@@ -187,13 +191,13 @@ The exact number of opportunities is expected to change between runs.
 * Ollama local LLM
 * User profile and preferences schema
 
-### Phase 2 — Discovery 🔄
+### Phase 2 — Discovery ✅
 
 * [x] RemoteOK
 * [x] We Work Remotely
-* [ ] Reddit
 * [x] GitHub Issues
-* [ ] Discovery validation and refinement
+* [x] Arbeitnow
+* [x] Discovery validation and refinement
 
 ### Phase 3 — Intelligence ⬜
 
