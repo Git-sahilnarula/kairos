@@ -9,10 +9,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        240,
-        -160
+        0,
+        0
       ],
-      "id": "ae7edf0d-d5a6-4ea2-9cbb-220cfbeb4059",
+      "id": "3763dbff-1d17-456f-9d79-587c9fc435bf",
       "name": "Fetch Arbeitnow"
     },
     {
@@ -23,59 +23,24 @@
       "type": "n8n-nodes-base.splitOut",
       "typeVersion": 1,
       "position": [
-        460,
-        -160
+        224,
+        0
       ],
-      "id": "1ac1ca2d-625b-476f-a5dc-4f758efde17e",
+      "id": "baa40055-e1bf-4987-ae81-58c3a8ed5a34",
       "name": "Split Out"
     },
     {
       "parameters": {
-        "jsCode": "const items = $input.all();\nconst KEYWORDS = ['python','n8n','automation','sql','docker','ai','data','api','ollama'];\n\nconst normalized = [];\n\nfor (const item of items) {\n  const job = item.json;\n  if (!job.title) continue;\n\n  const tagsArray = Array.isArray(job.tags) ? job.tags : [];\n\n  // Check if any tag matches keywords\n  let isRelevant = false;\n  for (const tag of tagsArray) {\n    const tagText = String(tag || \"\").toLowerCase();\n    if (KEYWORDS.some(keyword => tagText.includes(keyword))) {\n      isRelevant = true;\n      break;\n    }\n  }\n\n  // Also check title and company_name for keywords\n  if (!isRelevant) {\n    const titleText = String(job.title || \"\").toLowerCase();\n    const companyText = String(job.company_name || \"\").toLowerCase();\n    const combinedText = titleText + \" \" + companyText;\n    \n    for (const keyword of KEYWORDS) {\n      const pattern = new RegExp(`\\\\b${keyword}\\\\b`, 'i');\n      if (pattern.test(combinedText)) {\n        isRelevant = true;\n        break;\n      }\n    }\n  }\n\n  // Create source_opportunity_id from slug or title+company\n  let sourceId = job.slug || \"\";\n  if (!sourceId) {\n    sourceId = `${job.company_name}-${job.title}`.replace(/\\s+/g, '-').toLowerCase();\n  }\n\n  normalized.push({\n    json: {\n      source: \"arbeitnow\",\n      source_opportunity_id: String(sourceId),\n      title: job.title || \"Untitled\",\n      description: job.description || \"\",\n      url: job.url || \"\",\n      category: tagsArray.length > 0 ? tagsArray[0] : null,\n      skills: tagsArray,\n      budget_min: null,\n      budget_max: null,\n      currency: null,\n      pricing_type: null,\n      posted_at: job.date || null,\n      deadline: null,\n      location: job.location || \"\",\n      experience_level: null,\n      client_name: job.company_name || null,\n      client_country: null,\n      client_rating: null,\n      client_hiring_history: null,\n      proposal_count: null,\n      metadata: {\n        remote: job.remote\n      },\n      raw_data: job,\n      is_relevant: isRelevant\n    }\n  });\n}\n\nreturn normalized;"
+        "jsCode": "const items = $input.all();\nconst KEYWORDS = ['python','n8n','automation','sql','docker','ai','data','api','ollama'];\nconst PATTERNS = KEYWORDS.map(k => new RegExp(`\\\\b${k}\\\\b`, 'i'));\n\nconst normalized = [];\n\nfor (const item of items) {\n  const job = item.json;\n  if (!job.title) continue;\n\n  const tagsArray = Array.isArray(job.tags) ? job.tags : [];\n\n  // Relevant if a keyword appears as a whole word in any tag, the title, or the company name\n  const searchText = [\n    tagsArray.map(t => String(t || \"\")).join(\" \"),\n    String(job.title || \"\"),\n    String(job.company_name || \"\")\n  ].join(\" \");\n  const isRelevant = PATTERNS.some(p => p.test(searchText));\n\n  // Create source_opportunity_id from slug or title+company\n  let sourceId = job.slug || \"\";\n  if (!sourceId) {\n    sourceId = `${job.company_name}-${job.title}`.replace(/\\s+/g, '-').toLowerCase();\n  }\n\n  normalized.push({\n    json: {\n      source: \"arbeitnow\",\n      source_opportunity_id: String(sourceId),\n      title: job.title || \"Untitled\",\n      description: job.description || \"\",\n      url: job.url || \"\",\n      category: tagsArray.length > 0 ? tagsArray[0] : null,\n      skills: tagsArray,\n      budget_min: null,\n      budget_max: null,\n      currency: null,\n      pricing_type: null,\n      posted_at: job.date || null,\n      deadline: null,\n      location: job.location || \"\",\n      experience_level: null,\n      client_name: job.company_name || null,\n      client_country: null,\n      client_rating: null,\n      client_hiring_history: null,\n      proposal_count: null,\n      metadata: {\n        remote: job.remote\n      },\n      raw_data: job,\n      is_relevant: isRelevant\n    }\n  });\n}\n\nreturn normalized;"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        680,
-        -160
+        448,
+        0
       ],
-      "id": "e5b36737-c619-49b9-8a5f-b8d807f40fcc",
+      "id": "741c4959-e95a-413e-83cf-10ba40fecb1b",
       "name": "Normalize Arbeitnow"
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "loose",
-            "version": 3
-          },
-          "conditions": [
-            {
-              "id": "03c325dc-e91b-4713-ab72-08a1843cebef",
-              "leftValue": "={{ $json.is_relevant }}",
-              "rightValue": "=",
-              "operator": {
-                "type": "boolean",
-                "operation": "true",
-                "singleValue": true
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "looseTypeValidation": true,
-        "options": {}
-      },
-      "type": "n8n-nodes-base.filter",
-      "typeVersion": 2.3,
-      "position": [
-        900,
-        -160
-      ],
-      "id": "55827b15-6582-4a5e-be8b-24f28e5fd526",
-      "name": "Filter"
     },
     {
       "parameters": {
@@ -375,10 +340,10 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
       "position": [
-        1120,
-        -160
+        672,
+        0
       ],
-      "id": "ae4a74b5-bc29-4df1-9a9b-c8ad01cfa0fd",
+      "id": "960b2d28-ca3e-41bf-a50f-b858cb6497c4",
       "name": "Insert or update rows in a table",
       "credentials": {
         "postgres": {
@@ -401,10 +366,10 @@
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.4,
       "position": [
-        0,
-        0
+        -240,
+        160
       ],
-      "id": "07bf82c1-647b-443d-971c-02c85353a486",
+      "id": "a8e380ca-66dc-4a21-b2a1-d4656c7edaec",
       "name": "Schedule Trigger"
     }
   ],
@@ -436,17 +401,6 @@
       "main": [
         [
           {
-            "node": "Filter",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Filter": {
-      "main": [
-        [
-          {
             "node": "Insert or update rows in a table",
             "type": "main",
             "index": 0
@@ -471,12 +425,11 @@
     "executionOrder": "v1",
     "binaryMode": "separate"
   },
-  "versionId": "1faf26f3-2c0b-4975-a63a-a3905b3955dc",
+  "versionId": "72079c2b-41bf-47e7-9772-6b1999556ee7",
   "meta": {
-    "templateCredsSetupCompleted": true,
     "instanceId": "5215bda0e73597213fb7faa18b7b22f9c85396de4cdc48e8e72f513346eebc14"
   },
   "nodeGroups": [],
-  "id": "euc4hYQqnc6tdzXa",
+  "id": "ujew9saVUviF0Skb",
   "tags": []
 }
